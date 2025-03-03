@@ -19,15 +19,52 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentStatus {
+  SUCCEEDED
+  PENDING
+  FAILED
+  CANCELED
+}
+
 model Order {
-  id Int @id @default(autoincrement())
+  id          Int   @id @default(autoincrement())
   totalAmount Float
-  totalItems Int
+  totalItems  Int
 
   status OrderStatus
-  paid Boolean @default(false)
+  paid   Boolean     @default(false)
   paidAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id       String    @id @default(uuid())
+  userId   Int
+  stripeId String
+  email    String
+  name     String?
+  payment  Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  paymentIntentId   String
+  amount            Float
+  currency          String
+  cuid              String        @unique
+  userId            Int
+  status            PaymentStatus @default(PENDING)
+  payment_method_id String?
+  totalItems        Int
+  paidAt            DateTime?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
