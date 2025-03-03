@@ -7,6 +7,8 @@ interface EnvVars {
     POSTGRES_USER: string,
     POSTGRES_PASSWORD: string,
     POSTGRES_DB: string,
+    STRIPE_API_KEY: string,
+    DOMAIN: string
 }
 
 export const envs: EnvVars = {
@@ -15,4 +17,6 @@ export const envs: EnvVars = {
     POSTGRES_USER: env.get('POSTGRES_USER').required().asString(),
     POSTGRES_PASSWORD: env.get('POSTGRES_PASSWORD').required().asString(),
     POSTGRES_DB: env.get('POSTGRES_DB').required().asString(),
+    STRIPE_API_KEY: env.get('STRIPE_API_KEY').required().asString(),
+    DOMAIN: env.get('DOMAIN').required().asString()
 }
