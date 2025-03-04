@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { envs } from 'src/config';
 import { CustomerInterface, EventInterface, UserInterface } from '../common/interfaces';
 import { paymentConfig } from './const/constants';
-import { EventDto } from 'src/payment/dto';
+import { EventDto } from 'src/payment/common/dto';
 
 @Injectable()
 export class StripeService {
@@ -64,6 +64,10 @@ export class StripeService {
     })
   }
   
+  async findCustomerCheckoutSession(customerId: string) {
+    return (await this.client.checkout.sessions.list({ customer: customerId }))
+      .data;
+  }
   async findCustomerPayments(customerId: string) {
     return (await this.client.paymentIntents.list({ customer: customerId }))
       .data;
