@@ -16,7 +16,7 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
 
     constructor(
         private stripeServ: StripeService,
-        private customerServ: CustomerService
+        private customerServ: CustomerService,
     ) { super() }
 
     async createPayment(createPayment: CreatePaymentDto) {
@@ -138,7 +138,14 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
     }
 
     async webhookStripe(event: any) {
+        const resData = { recived: false, data: {} }
         switch(event.type) {
+            case 'checkout.session.expired':
+                console.log('checkout.session.expired')
+                break;
+            case 'checkout.session.failed':
+                console.log('checkout.session.failed')
+                break;
             case 'checkout.session.completed':
                 const paymentCheckout = event.data.object;
                 const cheackoutSession = await this.findByCheckoutSessionId(paymentCheckout.id);
@@ -150,11 +157,14 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
                         paidAt: new Date()
                     }
                     await this.updatePayment(paymentUpdate);
-                }                
-            break;
+                }
+                const eventId = await this.stripeServ.findItemBySessionId(paymentCheckout.id);
+                resData.data = { eventId: eventId, buyer: cheackoutSession.userId, totalItems: cheackoutSession.totalItems};
+                break;
             default:
                 console.log(`Unhandled event type ${event.type}`);
         }
-        return { recived: true };
+        resData.recived = true;
+        return resData;
     }
 }
