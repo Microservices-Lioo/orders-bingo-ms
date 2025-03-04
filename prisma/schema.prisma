@@ -19,13 +19,6 @@ enum OrderStatus {
   CANCELLED
 }
 
-enum PaymentStatus {
-  SUCCEEDED
-  PENDING
-  FAILED
-  CANCELED
-}
-
 model Order {
   id          Int   @id @default(autoincrement())
   totalAmount Float
@@ -51,17 +44,28 @@ model Customer {
   updatedAt DateTime @updatedAt
 }
 
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
+enum CheckoutSS {
+  OPEN
+  COMPLETE
+  EXPIRED
+}
+
 model Payment {
-  id                String        @id @default(uuid())
-  paymentIntentId   String
-  amount            Float
-  currency          String
-  cuid              String        @unique
-  userId            Int
-  status            PaymentStatus @default(PENDING)
-  payment_method_id String?
-  totalItems        Int
-  paidAt            DateTime?
+  id                    String        @id @default(uuid())
+  checkoutSessionId     String
+  amount                Float
+  currency              String
+  cuid                  String        @unique
+  userId                Int
+  paymentStatus         PaymentStatus @default(UNPAID)
+  checkoutSessionStatus CheckoutSS    @default(OPEN)
+  totalItems            Int
+  paidAt                DateTime?
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
