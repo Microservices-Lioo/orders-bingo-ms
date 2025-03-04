@@ -75,4 +75,12 @@ export class StripeService {
       return p.id === paymentId;
     })[0];
   }
+
+  async findItemBySessionId(sessionId: string) {
+    const listItems = await this.client.checkout.sessions.listLineItems(sessionId);
+    const productId = listItems.data[0].price.product;
+    const product = await this.client.products.retrieve(productId.toString());
+    const eventId = product.metadata.id;
+    return +eventId;
+  }
 }
