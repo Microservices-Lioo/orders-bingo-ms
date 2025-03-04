@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Stripe from 'stripe';
 import { envs } from 'src/config';
-import { CustomerInterface, EventInterface, UserInterface } from '../common/interfaces';
 import { paymentConfig } from './const/constants';
 import { EventDto } from 'src/payment/common/dto';
 
@@ -63,11 +62,7 @@ export class StripeService {
       payment_method: paymentMethodId
     })
   }
-  
-  async findCustomerCheckoutSession(customerId: string) {
-    return (await this.client.checkout.sessions.list({ customer: customerId }))
-      .data;
-  }
+
   async findCustomerPayments(customerId: string) {
     return (await this.client.paymentIntents.list({ customer: customerId }))
       .data;
