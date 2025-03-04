@@ -1,8 +1,7 @@
 import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { PaymentStatus, PrismaClient } from '@prisma/client';
-import { CustomerInterface, UserInterface } from 'src/common/interfaces';
+import { CheckoutSS, PaymentStatus, PrismaClient } from '@prisma/client';
 import { StripeService } from 'src/stripe/stripe.service';
-import { ConfirmPaymentDto, CreatePaymentDto, EventDto } from './dto';
+import { CreatePaymentDto, EventDto, UpdatePayment } from './common/dto';
 import { RpcException } from '@nestjs/microservices';
 import { CustomerService } from 'src/customer/customer.service';
 import { CreateCustomerDto } from 'src/customer/dto/create-customer.dto';
@@ -21,75 +20,42 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
     ) { super() }
 
     async createPayment(createPayment: CreatePaymentDto) {
-        const payment = await this.payment.create({
-            data: createPayment
-        });
-
-        return payment;
-    }
-
-    async confirmPayment(userId: number, confirmPaymentDto: ConfirmPaymentDto) {
-        await this.assertUserOwnsPayment(userId, confirmPaymentDto.paymentId);
-
-        const payment = await this.stripeServ.confirmPayment(
-            confirmPaymentDto.paymentId,
-            confirmPaymentDto.paymentMethodId,
-        );
-
-        const pay = await this.findById(payment.id);
-
-        if (!pay) {
+        try {
+            const payment = await this.payment.create({
+                data: createPayment
+            });
+    
+            return payment;
+        } catch (error) {
+            const message = error.message 
+                ? error.message 
+                : 'An unexpected error occurred while creating the payment.';
             throw new RpcException({
-                status: HttpStatus.NOT_FOUND,
-                message: 'Payment not found'
-            })
-        } else {
-            await this.payment.update({
-                where: { id: payment.id },
-                data: {
-                    status: this.getStatusPayment(payment.status)
-                }
+                status: HttpStatus.INTERNAL_SERVER_ERROR,
+                message: message,
+                error: 'create_payment'
             });
         }
-
-        return payment;
     }
 
-    async findCustomerPayments(customerId: string) {
-        if (!customerId) throw new RpcException({
-            status: HttpStatus.NOT_FOUND,
-            message: `This customer with id #${customerId} not found`
-        });
-
-        return this.stripeServ.findCustomerPayments(customerId);
-    }
-
-    async findCustomerPayment(customerId: string, paymentId: string) {
-        if (!customerId) throw new RpcException({
-            status: HttpStatus.NOT_FOUND,
-            message: `This customer with id #${customerId} not found`
-        });
-
-        const payment = await this.stripeServ.findCustomerPayment(
-            customerId,
-            paymentId,
-        );
-
-        if (!payment) throw new RpcException({
-            status: HttpStatus.NOT_FOUND,
-            message: `This payment with id #${paymentId} not found`
-        });
-
-        return payment;
-    }
-
-    async assertUserOwnsPayment(userId: number, paymentId: string) {
-        const payment = await this.findOne(paymentId, userId);
-
-        if (!payment) throw new RpcException({
-            status: HttpStatus.FORBIDDEN,
-            message: `Payment is forbidden`
-        })
+    async updatePayment(updatePayment: UpdatePayment) {
+        const { id, ...data } = updatePayment;
+        try {
+            const payment = await this.payment.update({
+                where: { id },
+                data: data
+            });
+            return payment;
+        } catch (error) {
+            const message = error.message 
+                ? error.message 
+                : 'An unexpected error occurred while updating the payment.';
+            throw new RpcException({
+                status: HttpStatus.INTERNAL_SERVER_ERROR,
+                message: message,
+                error: 'update_payment'
+            });
+        }
     }
 
     async findOne(id: string, userId: number) {
@@ -118,17 +84,22 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
         return payment;
     }
 
+    async findByCheckoutSessionId(checkoutSessionId: string) {
+        const payment = await this.payment.findFirst({
+            where: { checkoutSessionId: checkoutSessionId }
+        });
+
+        return payment;
+    }
+
     getStatusPayment(status: string): PaymentStatus {
-        if (status === 'succeeded') {
-            return PaymentStatus.SUCCEEDED;
-        } else if (status === 'pending') {
-            return PaymentStatus.PENDING;
-        } else if (status === 'failed') {
-            return PaymentStatus.FAILED;
+        if (status === 'paid') {
+            return PaymentStatus.PAID;
         } else {
-            return PaymentStatus.CANCELED;
+            return PaymentStatus.UNPAID;
         }
     }
+
 
     async createCheckoutSession(
         event: EventDto, 
@@ -156,15 +127,34 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
     async returnPaymentObject(data: any, cuid: string, quantity: number, userId: number, customerId: string): Promise<CreatePaymentDto> {
         return new CreatePaymentDto(
         {   
-            paymentIntentId: data.id, 
+            checkoutSessionId: data.id, 
             amount: data.amount_total, 
             currency: data.currency,
-            cuid: cuid, 
-            userId: userId, 
-            status: this.getStatusPayment(data.status),
-            totalItems: quantity, 
-            paidAt: new Date(), 
+            cuid: cuid,
+            userId: userId,
+            totalItems: quantity,
             customerId: customerId
         });
+    }
+
+    async webhookStripe(event: any) {
+        switch(event.type) {
+            case 'checkout.session.completed':
+                const paymentCheckout = event.data.object;
+                const cheackoutSession = await this.findByCheckoutSessionId(paymentCheckout.id);
+                if (cheackoutSession) {
+                    const paymentUpdate = { 
+                        id: cheackoutSession.id,
+                        paymentStatus: PaymentStatus.PAID,
+                        checkoutSessionStatus: CheckoutSS.COMPLETE,
+                        paidAt: new Date()
+                    }
+                    await this.updatePayment(paymentUpdate);
+                }                
+            break;
+            default:
+                console.log(`Unhandled event type ${event.type}`);
+        }
+        return { recived: true };
     }
 }
