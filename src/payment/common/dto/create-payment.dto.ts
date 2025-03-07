@@ -27,13 +27,13 @@ export class CreatePaymentDto {
         message: `Possible status values are  ${PaymentStatusList}`
     } )
     @IsOptional()
-    readonly paymentStatus: PaymentStatus = PaymentStatus.UNPAID;
+    paymentStatus: PaymentStatus = PaymentStatus.UNPAID;
 
     @IsEnum( CheckoutSSList, {
         message: `Possible status values are  ${CheckoutSSList}`
     } )
     @IsOptional()
-    readonly checkoutSessionStatus: CheckoutSS = CheckoutSS.OPEN;
+    checkoutSessionStatus: CheckoutSS = CheckoutSS.OPEN;
 
     @IsNumber()
     @IsPositive()
@@ -44,7 +44,7 @@ export class CreatePaymentDto {
 
     @IsDate()
     @IsNotEmpty()
-    readonly paidAt?: Date
+    paidAt?: Date
 
     constructor(payment: Payment | any) {
         this.checkoutSessionId = payment.checkoutSessionId;
