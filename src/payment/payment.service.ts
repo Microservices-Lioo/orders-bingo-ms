@@ -5,6 +5,7 @@ import { CreatePaymentDto, EventDto, UpdatePayment } from './common/dto';
 import { RpcException } from '@nestjs/microservices';
 import { CustomerService } from 'src/customer/customer.service';
 import { CreateCustomerDto } from 'src/customer/dto/create-customer.dto';
+import { CheckoutSSList } from './common/enums';
 
 @Injectable()
 export class PaymentService extends PrismaClient implements OnModuleInit {
@@ -138,32 +139,40 @@ export class PaymentService extends PrismaClient implements OnModuleInit {
     }
 
     async webhookStripe(event: any) {
-        const resData = { recived: false, data: {} }
-        switch(event.type) {
-            case 'checkout.session.expired':
-                console.log('checkout.session.expired')
-                break;
-            case 'checkout.session.failed':
-                console.log('checkout.session.failed')
-                break;
-            case 'checkout.session.completed':
-                const paymentCheckout = event.data.object;
-                const cheackoutSession = await this.findByCheckoutSessionId(paymentCheckout.id);
-                if (cheackoutSession) {
-                    const paymentUpdate = { 
-                        id: cheackoutSession.id,
-                        paymentStatus: PaymentStatus.PAID,
-                        checkoutSessionStatus: CheckoutSS.COMPLETE,
-                        paidAt: new Date()
+        const resData = { recived: false, data: {}, error: '' }
+        let updatePayment = new UpdatePayment();
+        try {
+            switch(event.type) {
+                case 'checkout.session.expired':
+                    const checkoutExpired = event.data.object;
+                    const paymentCheckoutSession = await this.findByCheckoutSessionId(checkoutExpired.id);
+                    if (paymentCheckoutSession) {
+                        updatePayment.id = paymentCheckoutSession.id;
+                        updatePayment.checkoutSessionStatus = CheckoutSS.EXPIRED;
+                        await this.updatePayment(updatePayment);
+                        updatePayment = null;
                     }
-                    await this.updatePayment(paymentUpdate);
-                }
-                const eventId = await this.stripeServ.findItemBySessionId(paymentCheckout.id);
-                resData.data = { eventId: eventId, buyer: cheackoutSession.userId, totalItems: cheackoutSession.totalItems};
-                break;
-            default:
-                console.log(`Unhandled event type ${event.type}`);
-        }
+                    break;
+                case 'checkout.session.completed':
+                    const paymentCheckout = event.data.object;
+                    const cheackoutSession = await this.findByCheckoutSessionId(paymentCheckout.id);
+                    if (cheackoutSession) {
+                        updatePayment.id = cheackoutSession.id;
+                        updatePayment.paymentStatus = PaymentStatus.PAID;
+                        updatePayment.checkoutSessionStatus = CheckoutSS.COMPLETE;
+                        updatePayment.paidAt = new Date();
+                        await this.updatePayment(updatePayment);
+                        updatePayment = null;
+                    }
+                    const eventId = await this.stripeServ.findItemBySessionId(paymentCheckout.id);
+                    resData.data = { eventId: eventId, buyer: cheackoutSession.userId, totalItems: cheackoutSession.totalItems};
+                    break;
+                default:
+                    console.log(`Unhandled event type ${event.type}`);
+            }
+        } catch (error) {
+            resData.error = 'Ocurrio un error processando un evento: ' + error;
+        }        
         resData.recived = true;
         return resData;
     }
