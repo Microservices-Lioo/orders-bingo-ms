@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,62 +7,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Order {
+  id                    Int         @id @default(autoincrement())
+  totalAmount           Float
+  totalItems            Int
+  status                OrderStatus
+  paid                  Boolean     @default(false)
+  paidAt                DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  currency              Currency
+  eventId               Int
+  stripePaymentIntentId String?     @unique
+  userId                Int
+  sessionId             String?     @unique
+  orderItems            OrderItem[]
+}
+
+model OrderItem {
+  orderId   Int
+  cardId    Int      @unique
+  priceUnit Float
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  @@id([orderId, cardId])
+}
+
+enum Currency {
+  USD
+}
+
 enum OrderStatus {
   PENDING
-  DELIVERED
-  CANCELLED
-}
-
-model Order {
-  id          Int   @id @default(autoincrement())
-  totalAmount Float
-  totalItems  Int
-
-  status OrderStatus
-  paid   Boolean     @default(false)
-  paidAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Customer {
-  id       String    @id @default(uuid())
-  userId   Int
-  stripeId String
-  email    String
-  name     String?
-  payment  Payment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum PaymentStatus {
-  UNPAID
   PAID
-}
-
-enum CheckoutSS {
-  OPEN
-  COMPLETE
-  EXPIRED
-}
-
-model Payment {
-  id                    String        @id @default(uuid())
-  checkoutSessionId     String
-  amount                Float
-  currency              String
-  cuid                  String        @unique
-  userId                Int
-  paymentStatus         PaymentStatus @default(UNPAID)
-  checkoutSessionStatus CheckoutSS    @default(OPEN)
-  totalItems            Int
-  paidAt                DateTime?
-
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  FAILED
+  REFUNDED
+  CANCELLED
 }

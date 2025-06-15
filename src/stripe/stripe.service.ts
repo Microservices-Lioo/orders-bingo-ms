@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import Stripe from 'stripe';
 import { envs } from 'src/config';
-import { paymentConfig } from './const/constants';
-import { EventDto } from 'src/payment/common/dto';
+import { CreateOrderDto } from 'src/orders/dto';
 
 @Injectable()
 export class StripeService {
@@ -15,72 +14,39 @@ export class StripeService {
     })
   }
 
-  async createCustomer(customer: { email: string, name: string}) {
-    return this.client.customers.create({
-      email: customer.email, 
-      name: customer.name
-    });
-  }
-
-  async createPayment(customerId: string) {
-    return this.client.paymentIntents.create({
-      customer: customerId,
-      amount: paymentConfig.amount,
-      currency: paymentConfig.currency
-    })
-  }
-
-  async createCheckoutSession(event: EventDto, cuid: string, quantity: number, customerId: string) {
+  async createCheckoutSession(createOrderDto: CreateOrderDto, orderId: number) {
+    const { currency, userId, eventId, nameEvent, totalItems, unitAmount } = createOrderDto;
     const session = await this.client.checkout.sessions.create({
       line_items: [
         { 
           price_data: {
-            currency: 'usd',
+            currency: currency.toLowerCase(),
             product_data: {
               metadata: {
-                id: event.id
+                orderId,
+                userId,
+                eventId
               },
-              name: event.name,
-              description: event.description,
+              name: `Bingo Table of the ${nameEvent} event`,
             },
-            unit_amount: Math.round(event.price * 100)
+            unit_amount: Math.round(unitAmount * 100)
           },
-          quantity: quantity
+          quantity: totalItems
         }
       ],
-      customer: customerId,
       mode: 'payment',
-      success_url: `${envs.DOMAIN}order;id=${event.id}?success=true`,
-      cancel_url: `${envs.DOMAIN}orderid=${event.id}?canceled=true`,
-    }, { idempotencyKey: cuid });
+      success_url: `${envs.DOMAIN}order;id=${eventId}?success=true`,
+      cancel_url: `${envs.DOMAIN}orderid=${eventId}?canceled=true`,
+    });
 
     return { data: session, url: session.url};
-  }
-
-  async confirmPayment(paymentId: string, paymentMethodId: string) {
-    return this.client.paymentIntents.confirm(paymentId, {
-      payment_method: paymentMethodId
-    })
-  }
-
-  async findCustomerPayments(customerId: string) {
-    return (await this.client.paymentIntents.list({ customer: customerId }))
-      .data;
-  }
-
-  async findCustomerPayment(customerId: string, paymentId: string) {
-    return (
-      await this.client.paymentIntents.list({ customer: customerId })
-    ).data.filter((p) => {
-      return p.id === paymentId;
-    })[0];
   }
 
   async findItemBySessionId(sessionId: string) {
     const listItems = await this.client.checkout.sessions.listLineItems(sessionId);
     const productId = listItems.data[0].price.product;
     const product = await this.client.products.retrieve(productId.toString());
-    const eventId = product.metadata.id;
-    return +eventId;
+    const orderId = parseInt(product.metadata.orderId);
+    return orderId;
   }
 }
