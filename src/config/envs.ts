@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import * as env from 'env-var';
+import * as joi from 'joi';
 
 interface EnvVars {
     PORT: number,
@@ -7,18 +7,38 @@ interface EnvVars {
     POSTGRES_USER: string,
     POSTGRES_PASSWORD: string,
     POSTGRES_DB: string,
-    STRIPE_API_KEY: string,
     DOMAIN: string,
-    SECRET_PAYMENT: string,
+    NATS_SERVERS: string[];
 }
 
+const envsSchema = joi.object({
+    PORT: joi.number().required(),
+    DATABASE_URL: joi.string().required(),
+    POSTGRES_USER: joi.string().required(),
+    POSTGRES_PASSWORD: joi.string().required(),
+    POSTGRES_DB: joi.string().required(),
+    DOMAIN: joi.string().required(),
+    NATS_SERVERS: joi.array().items( joi.string() ).required(),
+})
+.unknown(true);
+
+const { error, value } = envsSchema.validate( {
+    ...process.env,
+    NATS_SERVERS: process.env.NATS_SERVERS?.split(',')
+} );
+
+if (error) {
+    throw new Error(`Config validation error: ${error.message}`);
+}
+
+const envVars: EnvVars = value;
+
 export const envs: EnvVars = {
-    PORT: env.get('PORT').required().asPortNumber(),
-    DATABASE_URL: env.get('DATABASE_URL').required().asString(),
-    POSTGRES_USER: env.get('POSTGRES_USER').required().asString(),
-    POSTGRES_PASSWORD: env.get('POSTGRES_PASSWORD').required().asString(),
-    POSTGRES_DB: env.get('POSTGRES_DB').required().asString(),
-    STRIPE_API_KEY: env.get('STRIPE_API_KEY').required().asString(),
-    DOMAIN: env.get('DOMAIN').required().asString(),
-    SECRET_PAYMENT: env.get('SECRET_PAYMENT').required().asString(),
+    PORT: envVars.PORT,
+    DATABASE_URL: envVars.DATABASE_URL,
+    POSTGRES_USER: envVars.POSTGRES_USER,
+    POSTGRES_PASSWORD: envVars.POSTGRES_PASSWORD,
+    POSTGRES_DB: envVars.POSTGRES_DB,
+    DOMAIN: envVars.DOMAIN,
+    NATS_SERVERS: envVars.NATS_SERVERS
 }

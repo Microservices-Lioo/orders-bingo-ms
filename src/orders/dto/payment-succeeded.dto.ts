@@ -1,17 +1,16 @@
 import { IsNotEmpty, IsNumber, IsPositive, IsString, IsUUID } from "class-validator";
 
-export class CreateOrderDto {
-    @IsUUID()
+export class PaymentSucceededDto {
     @IsString()
     @IsNotEmpty()
-    eventId: string;
+    stripePaymentId: string;
 
-    @IsNumber()
-    @IsPositive()
-    quantity: number;
-    
     @IsUUID()
     @IsString()
     @IsNotEmpty()
-    buyer: string;
+    orderId: string;
+    
+    @IsString()
+    @IsNotEmpty()
+    receiptUrl: string;
 }

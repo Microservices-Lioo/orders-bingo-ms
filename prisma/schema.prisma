@@ -8,42 +8,43 @@ datasource db {
 }
 
 model Order {
-  id                    Int         @id @default(autoincrement())
-  totalAmount           Float
-  totalItems            Int
-  status                OrderStatus
-  paid                  Boolean     @default(false)
-  paidAt                DateTime?
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  currency              Currency
-  eventId               Int
-  stripePaymentIntentId String?     @unique
-  userId                Int
-  sessionId             String?     @unique
-  orderItems            OrderItem[]
+  id             String        @id @default(uuid())
+  totalAmount    Float
+  totalItems     Int
+  status         OrderStatus   @default(PENDING)
+  paid           Boolean       @default(false)
+  paidAt         DateTime?
+  stripeChargeId String?
+  orderItems     OrderItem[]
+  OrderReceipt   OrderReceipt?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 model OrderItem {
-  orderId   Int
-  cardId    Int      @unique
+  id        String    @id @default(uuid())
+  cardId    String
   priceUnit Float
   quantity  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  order     Order    @relation(fields: [orderId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  @@id([orderId, cardId])
+  Order     Order?    @relation(fields: [orderId], references: [id])
+  orderId   String?
 }
 
-enum Currency {
-  USD
+model OrderReceipt {
+  id         String   @id @default(uuid())
+  order      Order    @relation(fields: [orderId], references: [id])
+  orderId    String   @unique
+  receiptUrl String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum OrderStatus {
   PENDING
-  PAID
-  FAILED
-  REFUNDED
+  DELIVERED
   CANCELLED
+  PAID
 }

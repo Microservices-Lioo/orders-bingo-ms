@@ -1,26 +1,20 @@
-import { Controller, HttpStatus } from '@nestjs/common';
-import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
+import { Controller } from '@nestjs/common';
+import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, CreateOrderItemDto, OrderPaginationDto } from './dto';
-import { envs } from 'src/config';
+import { CreateOrderDto, OrderPaginationDto, PaymentSucceededDto } from './dto';
+import { ICreateOrder } from './interfaces';
 
 @Controller()
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+  ) {}
 
   @MessagePattern('createOrder')
-  create(@Payload() createOrderDto: CreateOrderDto) {
-    return this.ordersService.createOrder(createOrderDto);
-  }
-
-  @MessagePattern('createOrderItem')
-  createOrderItem(@Payload() createOrderDto: CreateOrderItemDto) {
-    this.ordersService.createOrderItem(createOrderDto);
-  }
-
-  @MessagePattern('createOrderItemArray')
-  createOrderItemArray(@Payload() createOrderDto: CreateOrderItemDto[]) {
-    this.ordersService.createOrderItemArray(createOrderDto);
+  async create(@Payload() createOrderDto: CreateOrderDto) {
+    const order: ICreateOrder  = await this.ordersService.createOrder(createOrderDto);
+    const paymentSession = await this.ordersService.paymentSession(order);
+    return paymentSession;
   }
 
   @MessagePattern('findAllOrders')
@@ -31,21 +25,12 @@ export class OrdersController {
   }
 
   @MessagePattern('findOneOrder')
-  findOne(@Payload() id: number) {
-    return this.ordersService.findOne(id);
+  findOne(@Payload() payload: { id: string, eventId: string}) {
+    return this.ordersService.findOne(payload);
   }
 
-  @MessagePattern('webhookPayment')
-  async webhookStripe(
-    @Payload() payload: { secret: string, event: any}
-  ) {
-    if (payload?.secret !== envs.SECRET_PAYMENT) {
-      throw new RpcException({
-        status: HttpStatus.UNAUTHORIZED,
-        message: `Not Authorized`
-      } );
-    }
-
-    return await this.ordersService.webhookStripe(payload);
+  @EventPattern('payment.succeeded')
+  paidOrder(@Payload() paySucceeded: PaymentSucceededDto) {
+    this.ordersService.paidOrder(paySucceeded)
   }
 }
