@@ -65,7 +65,7 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
       return { eventName: eventName, ...order };
     } catch (error) {
       throw new RpcException({
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message
       })
     }
@@ -111,13 +111,8 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
     };
   }
 
-  async findOne(payload: { id: string, eventId: string }) {
-    const { id, eventId } = payload;
+  async findOne(id: string) {
     try {
-      const event: EventEntity = await firstValueFrom(
-        this.client.send('findOneEvent', eventId)
-      );
-
       const order = await this.order.findFirst({
         where: {
           id: id
@@ -138,14 +133,11 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
         message: `Order with id #${id} not found`
       });
 
-      return {
-        ...order,
-        eventName: event.name
-      };
+      return  order;
 
     } catch (error) {
       throw new RpcException({
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
       })
     }
@@ -167,7 +159,7 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
       return paymentSession;
     } catch (error) {
       throw new RpcException({
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: `Error in comunicate with payments ms`
       })
     }

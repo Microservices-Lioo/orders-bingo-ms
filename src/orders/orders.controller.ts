@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, ParseUUIDPipe } from '@nestjs/common';
 import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, OrderPaginationDto, PaymentSucceededDto } from './dto';
@@ -25,8 +25,8 @@ export class OrdersController {
   }
 
   @MessagePattern('findOneOrder')
-  findOne(@Payload() payload: { id: string, eventId: string}) {
-    return this.ordersService.findOne(payload);
+  findOne(@Payload('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findOne(id);
   }
 
   @EventPattern('payment.succeeded')
