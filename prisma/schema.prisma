@@ -17,6 +17,7 @@ model Order {
   stripeChargeId String?
   orderItems     OrderItem[]
   OrderReceipt   OrderReceipt?
+  userId         String
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -29,13 +30,13 @@ model OrderItem {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  Order     Order?    @relation(fields: [orderId], references: [id])
+  Order     Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId   String?
 }
 
 model OrderReceipt {
   id         String   @id @default(uuid())
-  order      Order    @relation(fields: [orderId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId    String   @unique
   receiptUrl String
   createdAt  DateTime @default(now())
